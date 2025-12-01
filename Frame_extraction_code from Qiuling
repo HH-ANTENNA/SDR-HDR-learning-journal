@@ -1,0 +1,121 @@
+import subprocess
+import os
+from pathlib import Path
+
+out = Path(r"C:\temp\out")
+out.mkdir(parents=True, exist_ok=True)
+p = out / "frame_0001.png"
+print(str(p))  # 转成字符串给第三方程序使用
+import numpy as np
+import cv2
+
+
+class VideoFrameExtractor:
+    def __init__(self):
+        # 确保 ffmpeg 已安装
+        try:
+            subprocess.run(['ffmpeg', '-version'], capture_output=True, check=True)
+        except subprocess.CalledProcessError:
+            raise RuntimeError("FFmpeg not found. Please install FFmpeg first.")
+        except FileNotFoundError:
+            raise RuntimeError("FFmpeg not found in system PATH.")
+
+    def extract_synchronized_frames(self, sdr_video_path, hdr_video_path, output_dir, fps=1):
+        """
+        同步抽取SDR和HDR视频的对应帧
+
+        Args:
+            sdr_video_path (str): SDR视频路径
+            hdr_video_path (str): HDR视频路径
+            output_dir (str): 输出目录
+            fps (int): 每秒抽取的帧数
+        """
+        # 创建输出目录
+        output_dir = Path(output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        sdr_output_dir = output_dir / "SDR"
+        hdr_output_dir = output_dir / "HDR"
+
+        sdr_output_dir.mkdir(parents=True, exist_ok=True)
+        hdr_output_dir.mkdir(parents=True, exist_ok=True)
+
+        # 获取两个视频的信息
+        sdr_info = self.get_video_info(sdr_video_path)
+        hdr_info = self.get_video_info(hdr_video_path)
+
+        # 计算时间间隔（秒）
+        interval = 1.0 / fps
+
+        # 提取SDR视频帧
+        sdr_command = [
+            'ffmpeg', '-i', sdr_video_path,
+            '-r', str(fps),  # 设置帧率
+            '-frame_pts', '1',
+            f'{sdr_output_dir}/frame_%04d.png'
+        ]
+
+        # 提取HDR视频帧
+        hdr_command = [
+            'ffmpeg', '-i', hdr_video_path,
+            '-r', str(fps),  # 设置帧率
+            '-pix_fmt', 'rgb48be',  # 使用48位RGB格式
+            '-frame_pts', '1',
+            f'{hdr_output_dir}/frame_%04d.png'
+        ]
+
+        try:
+            print("开始抽取SDR视频帧...")
+            subprocess.run(sdr_command, check=True)
+            print(f"SDR帧已抽取到 {sdr_output_dir}")
+
+            print("开始抽取HDR视频帧...")
+            subprocess.run(hdr_command, check=True)
+            print(f"HDR帧已抽取到 {hdr_output_dir}")
+
+            print("同步抽取完成！")
+        except subprocess.CalledProcessError as e:
+            raise RuntimeError(f"抽取帧时出错: {e}")
+
+    def get_video_info(self, video_path):
+        """
+        获取视频信息
+
+        Args:
+            video_path (str): 视频路径
+
+        Returns:
+            dict: 包含视频信息的字典
+        """
+        command = [
+            'ffprobe',
+            '-v', 'quiet',
+            '-print_format', 'json',
+            '-show_format',
+            '-show_streams',
+            video_path
+        ]
+
+        try:
+            result = subprocess.run(command, check=True, capture_output=True, text=True)
+            return eval(result.stdout)  # 返回视频信息字典
+        except subprocess.CalledProcessError as e:
+            raise RuntimeError(f"获取视频信息时出错: {e}")
+
+
+def main():
+    # 使用示例
+    extractor = VideoFrameExtractor()
+
+    sdr_video = r"D:\Youtube\麦老师超分视频对4\gt4k480视频对\The Craziest Dolby Vision - 4K HDR Video ULTRA HD 120 FPS(4KSDR).webm"
+    hdr_video = r"D:\Youtube\麦老师超分视频对4\gt4k480视频对\The Craziest Dolby Vision - 4K HDR Video ULTRA HD 120 FPS(4KHDR).webm"
+    output_dir = r"D:\帧\Youtube\麦老师超分视频对4\gt4k480视频对\The Craziest Dolby Vision - 4K HDR Video ULTRA HD 120 FPS"
+
+    try:
+        extractor.extract_synchronized_frames(sdr_video, hdr_video, output_dir, fps=1)
+    except Exception as e:
+        print(f"处理视频时出错: {e}")
+
+
+if __name__ == "__main__":
+    main()
