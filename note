@@ -1,0 +1,114 @@
+1 “shell 注入”和“子进程”
+
+1.1子进程（子程序）
+    子进程 = 你的程序之外另一个正在运行的程序（例如 ffmpeg、ffprobe、cmd）。
+    在 Python 中用 subprocess 启动子进程；子进程有自己的标准输入（stdin）、标准输出（stdout）、标准错误（stderr）和退出码（returncode）。
+    subprocess.run(...) 会等待子进程结束（默认阻塞），返回一个 CompletedProcess（包含 returncode、stdout、stderr）。如果 check=True 且退出码非 0，会抛出 CalledProcessError；找不到可执行文件会抛 FileNotFoundError。
+    示例（常见用法）
+
+
+    # 安全调用子进程（推荐）
+    import subprocess  
+    res = subprocess.run(['ffmpeg','-version'], capture_output=True, text=True, check=True)    
+    print(res.stdout.splitlines()[0])  # 子进程输出（文本）        
+
+    1.2 shell 注入（Shell injection）  
+    
+    shell 注入是安全漏洞：如果把不可信输入直接拼进要在 shell 中执行的字符串，攻击者可以在输入里插入额外命令，从而让系统执行任意命令（删除文件、窃取数据、安装后门等）。
+    发生场景：使用 shell=True 或把命令作为一个拼接好的字符串交给 shell 执行时，未对输入做妥善转义。
+
+    不安全示例（易受注入）:
+    # 危险：把用户输入直接拼到字符串并在 shell 中执行
+    user_input = "video.mp4; del C:\\important\\*.*"  # 恶意示例
+    cmd = f"ffmpeg -i {user_input} -r 1 out%04d.png"
+    subprocess.run(cmd, shell=True)  # shell 会执行 ; 后面的任意命令 —— 注入发生      
+
+
+    安全做法（避免注入）
+    优先使用列表形式参数（shell=False，默认），不用 shell 去解析字符串。
+    如果必须用 shell=True，必须对每个外部输入做严格转义/验证（不推荐）。
+    安全示例（推荐）:
+
+    # 推荐：列表形式，避免 shell 解析，不会被注入
+    user_path = r"C:\path\to\video.mp4"
+    subprocess.run(['ffmpeg', '-i', user_path, '-r', '1', r'out\frame_%04d.png'], check=True)        
+
+    补充要点
+    capture_output=True：把 stdout/stderr 捕获到返回对象，便于程序读取/记录。
+    text=True：以字符串而非字节形式返回 stdout/stderr。
+    check=True：退出码非 0 时抛异常，便于统一错误处理。
+    始终验证并限制任何来自用户/外部的路径或参数，避免把任意文本当作命令片段传入。
+
+2.模块导入与控制流
+
+2.1 模块导入（import / from … import …）                
+    要点：
+
+    import module 载入模块，使用 module.name 调用。
+    from module import Name 直接导入名称，直接用 Name。
+    不用的导入应删除以保持清爽
+    示例：
+    import os
+    from pathlib import Path  
+
+    p = Path(".")  # 直接用 Path
+    print(os.listdir("."))  
+
+2.2控制流（try/except / if name == "main"）      
+    要点：
+    try…except 用来捕获异常，避免程序崩溃并进行处理。
+    if name == "main": 用来判断脚本是否被直接运行（而不是作为模块导入）。
+    示例：
+    try:
+    1/0
+    except ZeroDivisionError:  
+        print("除零错误被捕获")
+    if __name__ == "__main__":        
+        print("直接运行脚本")
+
+3.os板块的 print(os.path.exists(r"C:\temp"))  与 print(os.environ.get("PATH")[:80]) 
+
+    【import os ---导入标准库 os，提供与操作系统交互的函数（文件、环境变量、路径等）。】
+
+3.1  print(os.path.exists(r"C:\temp"))            
+
+        os.path.exists(path)：检查指定路径是否存在，返回 True 或 False。
+        r"C:\temp"：原始字符串，反斜杠不被当作转义（Windows 路径常用）。
+        print(...)：把结果输出到屏幕（终端）。
+        用处：快速判断某个文件或文件夹是否存在，常用于决定是否创建目录或报错提示。
+
+3.2  print(os.environ.get("PATH")[:80])                            
+
+    os.environ 是环境变量字典。os.environ.get("PATH") 取出系统的 PATH 环境变量字符串（可能为 None）。
+    [:80] 是字符串切片，取出前 80 个字符，避免在终端打印过长。
+    print(...) 把截取的前 80 个字符打印出来，常用于快速查看 PATH 是否包含某些可执行文件所在的目录（比如 ffmpeg 所在路径）。
+    注意：如果 PATH 为 None，直接 [:80] 会报错。更安全写法见下面。
+
+4.pathlib 板块里的  Path
+
+    from pathlib import Path
+
+    out = Path(r"C:\temp\out")
+    out.mkdir(parents=True, exist_ok=True)
+    p = out / "frame_0001.png"  
+    print(str(p))  # 转成字符串给第三方程序使用
+
+    逐行解释：
+    from pathlib import Path :                 
+        导入 Path 类（来自 pathlib 模块），用于更方便、安全地处理文件和目录路径（跨平台）。
+
+    out = Path(r"C:\temp\out") :    
+        用 Path 创建一个路径对象。r"..." 是原始字符串（raw string），在 Windows 路径中不把反斜杠 \ 当作转义符。out 是一个 Path 实例，不是普通字符串。
+
+    out.mkdir(parents=True, exist_ok=True) :                   
+    创建目录。参数说明：
+        parents=True：如果上级目录不存在，一并创建（递归创建）。
+        exist_ok=True：如果目录已存在，不会报错（静默通过）。
+        如果创建失败会抛出异常（例如权限不足）。
+    p = out / "frame_0001.png" :         
+        使用 Path 重载的 / 运算符拼接路径（比字符串拼接更安全）。这里生成的 p 是 Path 对象，代表文件 C:\temp\out\frame_0001.png。
+
+    print(str(p)) # 转成字符串给第三方程序使用:
+        把 Path 转为字符串并打印。很多第三方库或子进程接口期望文件路径为普通字符串（而不是 Path 对象），所以常用 str(p) 转换。
+
+    （pass其他内容另开）
