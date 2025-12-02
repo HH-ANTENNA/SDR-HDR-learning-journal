@@ -1,0 +1,76 @@
+ffmpeg
+1.简介:
+    1.1ffmpeg 是一个强大的开源多媒体处理工具（命令行程序），可以做：转码、封装、抽帧、截图、流处理、转码参数检测等。
+    1.2配套工具：ffprobe（查询媒体信息）、ffplay（播放测试）。
+
+2.在 Windows 上安装（简要）
+    2.1下载静态构建（https://ffmpeg.org/download.html 或 gyan.dev / BtbN builds），解压后把 ffmpeg/bin 加入系统 PATH。
+    2.2验证：在 cmd/PowerShell 运行 ffmpeg -version。               
+
+3.基本概念（输入 / 输出 / 参数位置）
+    3.1 命令由 argv 组成：ffmpeg [全局选项] {[input options] -i inputfile} {[output options] outputfile}。                      
+    3.2 位置很重要：出现在 -i 之前的选项多为输入选项，出现在 -i 之后为输出选项，意义不同（例如 -r 在 -i 前/后分别作为“解释输入帧率”或“设置输出帧率”）。
+    3.3输出可以是文件、图片序列（frame_%04d.png）、管道或流。
+
+4.常用参数及含义（简明）
+    -i <file>：指定输入文件。
+    -r <fps>：帧率；位置决定语义（详见上）。
+    -vf "<filter>"：视频滤镜（如 fps、scale、crop、transpose）。例：-vf "fps=1"。        
+    -vsync 0/2：控制时间戳/帧重复策略，抽帧时常用 -vsync 0。
+    -pix_fmt <fmt>：像素格式（rgb24, rgb48le/rgb48be, yuv420p 等）。  
+    -c:v / -c:a：设置视频/音频编解码器（libx264, libvpx-vp9, copy 等）。
+    -ss <time>：快进到某时间点（可放在输入前做快速 seek）。
+    -t <duration>：截取时长。或用 -to 指定结束时间点。
+    -frames:v <n>：只输出视频帧数量。
+    -map：精确选择流（多音轨/多流时用）。
+    -y：覆盖输出文件而不提示。
+    -hide_banner：隐藏版权/编译信息，减少日志。
+    %04d：输出序号格式，占位符用于图片序列。
+
+5.常见操作示例（可直接在终端运行）
+
+    5.1查看版本 / 检查安装：
+    # bash
+    ffmpeg -version  
+    ffprobe -v quiet -print_format json -show_format -show_streams input.mp4  
+
+    5.2从视频每秒抽一帧（推荐稳定写法）：
+    # bash
+    ffmpeg -i input.mp4 -vf "fps=1" -vsync 0 out/frame_%04d.png                    
+
+    5.3用 -r（输出端）抽帧（也可用，但可能有 vsync 问题）：
+    # bash
+    ffmpeg -i input.mp4 -r 1 out/frame_%04d.png        
+
+    5.4把视频转换为 H.264（保持音频）：
+    # bash
+    ffmpeg -i in.mkv -c:v libx264 -preset medium -crf 23 -c:a copy out.mp4  
+
+    5.5截取 00:01:30 开始的 10 秒（快速 seek，-ss 放前面更快但略不精确）：
+    # bash
+    ffmpeg -ss 00:01:30 -i in.mp4 -t 10 -c:v copy -c:a copy out_clip.mp4  
+
+    5.6导出单帧（指定时间点）：
+    # bash
+    ffmpeg -ss 00:00:05 -i in.mp4 -frames:v 1 -q:v 2 out.jpg  
+    
+6.ffprobe（媒体信息）
+ffprobe 用来解析流、码率、像素格式、色彩信息等，建议结合 json 输出并用 json.loads 解析（不要用 eval）。
+示例：
+    # bash
+    ffprobe -v quiet -print_format json -show_format -show_streams in.mp4        
+
+7.HDR / 高位深注意事项（常见坑）
+
+    7.1HDR 不只是高位深像素（rgb48），还需要色度（color_primaries）、转移函数（transfer）和元数据（如 Dolby Vision / HDR10 的元数据）。
+    7.2指定 -pix_fmt rgb48be/le 只改变像素位深与字节序，但不自动写入 HDR 元数据到 PNG/容器。
+    7.3小端/大端：Windows 通常小端，很多 ffmpeg 构建使用 rgb48le。确认读写链（viewer、后处理工具）支持 16-bit PNG。
+    7.4若要尽量保留 HDR，最好不做过多颜色空间转换，或使用支持原始 HDR 封装的容器与参数，并检查 -color_primaries/-color_trc/-colorspace。
+
+8.调试与常见问题
+
+    8.1ffmpeg 的诊断信息通常输出到 stderr（不是 stdout）。在 Python 中查看 subprocess.run(..., capture_output=True, text=True).stderr。              
+    8.2常见错误：找不到编解码器（提示 unknown encoder/decoder）、输出文件已存在（添加 -y）、像素格式不支持（尝试其它 pix_fmt）。
+    8.3若抽帧重复或丢帧，尝试 -vf "fps=..." 与 -vsync 0；或者用 -ss/-frames:v 精确控制。
+
+
