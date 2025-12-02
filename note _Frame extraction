@@ -68,7 +68,7 @@
     if __name__ == "__main__":          
         print("直接运行脚本")
 
-3.os板块的 print(os.path.exists(r"C:\temp"))  与 print(os.environ.get("PATH")[:80]) 
+3.os板块的 print(os.path.exists(r"C:\temp"))  与 print(os.environ.get("PATH")[:80])   
 
     【import os ---导入标准库 os，提供与操作系统交互的函数（文件、环境变量、路径等）。】
 
@@ -88,7 +88,7 @@
 
 4.pathlib 板块里的  Path
 
-    from pathlib import Path
+    from pathlib import Path  
 
     out = Path(r"C:\temp\out")
     out.mkdir(parents=True, exist_ok=True)
@@ -99,7 +99,7 @@
     from pathlib import Path :                 
         导入 Path 类（来自 pathlib 模块），用于更方便、安全地处理文件和目录路径（跨平台）。
 
-    out = Path(r"C:\temp\out") :    
+    out = Path(r"C:\temp\out") :      
         用 Path 创建一个路径对象。r"..." 是原始字符串（raw string），在 Windows 路径中不把反斜杠 \ 当作转义符。out 是一个 Path 实例，不是普通字符串。
 
     out.mkdir(parents=True, exist_ok=True) :                   
@@ -115,13 +115,13 @@
 
     （pass其他内容另开）
 
-5.
+5.关于ffmpeg  
     ffmpeg 常用参数（main中出现的代码如下）
     
         cmd = ['ffmpeg', '-i', 'in.mp4', '-r', '1', 'out/frame_%04d.png']
-        proc = subprocess.run(cmd, capture_output=True, text=True)
+        proc = subprocess.run(cmd, capture_output=True, text=True)    
         print("stdout:", proc.stdout)
-        print("stderr:", proc.stderr)  # ffmpeg 信息通常在 stderr  
+        print("stderr:", proc.stderr)  # ffmpeg 信息通常在 stderr    
         
     要点并示例解释：
 
@@ -130,3 +130,5 @@
         -pix_fmt rgb48be：像素格式，rgb48be 表示每通道 16-bit（big-endian）。注意字节序和目标工具支持。
         %04d.png：输出文件模板，%04d 表示 4 位序号（0001）。
         -frame_pts 1：指示 image2 复用器用 PTS 作为序号（不常用，且需确认 ffmpeg 版本支持）。
+  （ffmpeg其他内容另开）
+
