@@ -1,0 +1,35 @@
+1.导入的库
+1.1 os库     
+    用途：路径拼接、列出目录、创建目录等基础文件系统操作。
+    常用函数示例：
+        # python      
+        import os
+        print(os.listdir(r"C:\temp"))               # 列出目录内容        
+        print(os.path.join("C:\\tmp", "a.png"))    # 拼接路径  
+        os.makedirs(r"C:\temp\out", exist_ok=True) # 创建目录（已存在不报错）    
+1.2 tempfile        
+    用途：创建临时目录/文件（自动清理），避免直接在源目录操作导致问题。
+        # python    
+        import tempfile              
+        with tempfile.TemporaryDirectory() as tmp:  
+            print("临时目录：", tmp)
+            # 离开 with 块后目录会自动删除
+1.3 shutil        
+    用途：复制/移动文件并保留元信息（shutil.copy2）
+        # python  
+        import shutil      
+        shutil.copy2(r"C:\src\a.png", r"C:\tmp\a.png")  # 复制并保留时间等元数据        
+    
+2.重要语法/结构
+     for 循环与 enumerate：用于给文件按顺序编号。
+        # python        
+        for i, name in enumerate(["a.png","b.png"], 1):  # 从1开始计数            
+        print(i, name)
+        
+3.路径与文件操作（脚本中用到）
+    os.listdir(input_folder)：列出目录项（不保证排序）。
+    os.path.isfile(path)：判断是否为文件。
+    os.path.splitext(filename)：分离文件名与扩展名（返回 (name, ext)）。
+    os.path.join(a,b)：跨平台拼接路径。
+    os.makedirs(dir, exist_ok=True)：递归创建目录        
+    
